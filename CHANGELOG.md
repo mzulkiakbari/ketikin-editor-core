@@ -23,13 +23,11 @@
 - Insert gambar
 - Word count, page count
 - History (undo/redo)
-```
 
 ## [0.1.1] - 2026-04-05
 
 ### Added
 - Tab Stop Support
-```
 
 ## [0.1.1] - 2026-04-04
 
