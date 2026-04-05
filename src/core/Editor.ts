@@ -686,7 +686,7 @@ export class Editor {
   // ── CLIPBOARD ─────────────────────────────────────────────────────────────
   public copyToClipboard() {
     const text = this.getSelectedText();
-    if (text) navigator.clipboard?.writeText(text).catch(() => {});
+    if (text) navigator.clipboard?.writeText(text).catch(() => { });
   }
 
   public cutToClipboard() {
@@ -712,8 +712,8 @@ export class Editor {
   }
 
   public setFontFamily(family: string) { this.applyFormat({ fontFamily: family }); }
-  public setFontSize(size: number)     { this.applyFormat({ fontSize: Math.max(1, size) }); }
-  public setFontColor(color: string)   { this.applyFormat({ color }); }
+  public setFontSize(size: number) { this.applyFormat({ fontSize: Math.max(1, size) }); }
+  public setFontColor(color: string) { this.applyFormat({ color }); }
   public setHighlightColor(color: string | undefined) { this.applyFormat({ backgroundColor: color }); }
 
   public setLineSpacing(lineHeight: number) {
@@ -739,11 +739,11 @@ export class Editor {
       if (is < ie) {
         const sel = el.text.substring(is - elStart, ie - elStart);
         let transformed = sel;
-        if (mode === 'upper')    transformed = sel.toUpperCase();
-        if (mode === 'lower')    transformed = sel.toLowerCase();
-        if (mode === 'title')    transformed = sel.replace(/\b\w/g, c => c.toUpperCase());
+        if (mode === 'upper') transformed = sel.toUpperCase();
+        if (mode === 'lower') transformed = sel.toLowerCase();
+        if (mode === 'title') transformed = sel.replace(/\b\w/g, c => c.toUpperCase());
         if (mode === 'sentence') transformed = sel.charAt(0).toUpperCase() + sel.slice(1).toLowerCase();
-        if (mode === 'toggle')   transformed = sel.split('').map(c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()).join('');
+        if (mode === 'toggle') transformed = sel.split('').map(c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()).join('');
         el.text = el.text.substring(0, is - elStart) + transformed + el.text.substring(ie - elStart);
       }
       currentTotal = elEnd;
@@ -755,11 +755,11 @@ export class Editor {
   public applyStyle(style: 'Normal' | 'NoSpacing' | 'Heading1' | 'Heading2' | 'Heading3') {
     this.history.pushHistory(this.elements);
     const styleMap: Record<string, Partial<DocElement>> = {
-      Normal:    { fontSize: 12, bold: false, italic: false, fontFamily: 'Calibri',   lineHeight: 1.15, spacingAfter: 8,  headingLevel: undefined },
-      NoSpacing: { fontSize: 12, bold: false, italic: false, fontFamily: 'Calibri',   lineHeight: 1.0,  spacingAfter: 0,  headingLevel: undefined },
-      Heading1:  { fontSize: 28, bold: true,  italic: false, fontFamily: 'Calibri', lineHeight: 1.15, spacingAfter: 12, headingLevel: 1 },
-      Heading2:  { fontSize: 22, bold: true,  italic: false, fontFamily: 'Calibri', lineHeight: 1.15, spacingAfter: 8,  headingLevel: 2 },
-      Heading3:  { fontSize: 18, bold: true,  italic: true,  fontFamily: 'Calibri', lineHeight: 1.15, spacingAfter: 6,  headingLevel: 3 },
+      Normal: { fontSize: 12, bold: false, italic: false, fontFamily: 'Calibri', lineHeight: 1.15, spacingAfter: 8, headingLevel: undefined },
+      NoSpacing: { fontSize: 12, bold: false, italic: false, fontFamily: 'Calibri', lineHeight: 1.0, spacingAfter: 0, headingLevel: undefined },
+      Heading1: { fontSize: 28, bold: true, italic: false, fontFamily: 'Calibri', lineHeight: 1.15, spacingAfter: 12, headingLevel: 1 },
+      Heading2: { fontSize: 22, bold: true, italic: false, fontFamily: 'Calibri', lineHeight: 1.15, spacingAfter: 8, headingLevel: 2 },
+      Heading3: { fontSize: 18, bold: true, italic: true, fontFamily: 'Calibri', lineHeight: 1.15, spacingAfter: 6, headingLevel: 3 },
     };
     const props = styleMap[style];
     if (!props) return;
