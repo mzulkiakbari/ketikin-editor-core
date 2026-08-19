@@ -16,16 +16,20 @@ interface RibbonProps {
     onLayoutClick: () => void;
     onImportClick: () => void;
     onImageInsertClick?: () => void;
+    theme?: 'light' | 'dark';
 }
 
 export const Ribbon: React.FC<RibbonProps> = ({ 
     editor, 
     onLayoutClick, 
     onImportClick, 
-    onImageInsertClick 
+    onImageInsertClick,
+    theme = 'dark'
 }) => {
+    const isDark = theme !== 'light';
     // Active Balloon Popover State: null | 'font' | 'paragraph' | 'insert' | 'layout' | 'find'
     const [activeBalloon, setActiveBalloon] = useState<string | null>(null);
+
     const toolbarRef = useRef<HTMLDivElement>(null);
 
     const fmt = (editor?.getActiveFormats() as any) || {};
@@ -59,14 +63,21 @@ export const Ribbon: React.FC<RibbonProps> = ({
     const currentFont = fmt.fontFamily || 'Calibri';
     const currentSize = fmt.fontSize || 12;
 
+    const popoverStyle = getBalloonPopoverStyle(isDark);
+    const itemBtnStyle = getBalloonItemBtnStyle(isDark);
+    const sepStyle = getSeparatorStyle(isDark);
+    const btnStyle = (active: boolean) => balloonBtnStyle(active, isDark);
+    const trigStyle = (active: boolean) => balloonTriggerStyle(active, isDark);
+
+
     return (
         <div 
             ref={toolbarRef}
             className="ketikin-editor-ui sticky-balloon-toolbar"
             style={{ 
                 width: '100%',
-                backgroundColor: 'rgba(18, 18, 22, 0.88)', 
-                border: '1px solid rgba(255, 255, 255, 0.12)',
+                backgroundColor: isDark ? 'rgba(18, 18, 22, 0.88)' : 'rgba(255, 255, 255, 0.94)', 
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.12)',
                 borderRadius: '16px',
                 padding: '6px 14px',
                 display: 'flex',
@@ -74,9 +85,12 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 justifyContent: 'space-between',
                 gap: '6px',
                 userSelect: 'none',
-                boxShadow: '0 12px 36px 0 rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+                boxShadow: isDark 
+                  ? '0 12px 36px 0 rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)' 
+                  : '0 10px 30px 0 rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)',
                 backdropFilter: 'blur(16px)',
-                fontFamily: 'system-ui, -apple-system, sans-serif'
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: isDark ? '#ffffff' : '#0f172a'
             }}
             onMouseDown={e => {
                 if (!(e.target as HTMLElement).closest('input')) {
@@ -89,57 +103,57 @@ export const Ribbon: React.FC<RibbonProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                 <button
                     onClick={() => editor?.undo()}
-                    style={balloonBtnStyle(false)}
+                    style={btnStyle(false)}
                     title="Undo (Ctrl+Z)"
                 >
                     <IconUndo />
                 </button>
                 <button
                     onClick={() => editor?.redo()}
-                    style={balloonBtnStyle(false)}
+                    style={btnStyle(false)}
                     title="Redo (Ctrl+Y)"
                 >
                     <IconRedo />
                 </button>
             </div>
 
-            <div style={separatorStyle} />
+            <div style={sepStyle} />
 
             {/* 2. Quick Text Formats */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                 <button
                     onClick={() => editor?.toggleFormat('bold')}
-                    style={balloonBtnStyle(!!fmt.bold)}
+                    style={btnStyle(!!fmt.bold)}
                     title="Tebal / Bold (Ctrl+B)"
                 >
                     <IconBold />
                 </button>
                 <button
                     onClick={() => editor?.toggleFormat('italic')}
-                    style={balloonBtnStyle(!!fmt.italic)}
+                    style={btnStyle(!!fmt.italic)}
                     title="Miring / Italic (Ctrl+I)"
                 >
                     <IconItalic />
                 </button>
                 <button
                     onClick={() => editor?.toggleFormat('underline')}
-                    style={balloonBtnStyle(!!fmt.underline)}
+                    style={btnStyle(!!fmt.underline)}
                     title="Garis Bawah / Underline (Ctrl+U)"
                 >
                     <IconUnderline />
                 </button>
             </div>
 
-            <div style={separatorStyle} />
+            <div style={sepStyle} />
 
             {/* 3. Balloon: Font & Typography */}
             <div style={{ position: 'relative' }}>
                 <button
                     onClick={() => toggleBalloon('font')}
-                    style={balloonTriggerStyle(activeBalloon === 'font')}
+                    style={trigStyle(activeBalloon === 'font')}
                     title="Pengaturan Font & Tipografi"
                 >
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#a78bfa', marginRight: '4px' }}>A</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: isDark ? '#a78bfa' : '#4f46e5', marginRight: '4px' }}>A</span>
                     <span style={{ fontSize: '11px', maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {currentFont} ({currentSize})
                     </span>
@@ -147,8 +161,8 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 </button>
 
                 {activeBalloon === 'font' && (
-                    <div style={balloonPopoverStyle}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    <div style={popoverStyle}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#a1a1aa' : '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
                             Font & Tipografi
                         </div>
 
@@ -164,8 +178,9 @@ export const Ribbon: React.FC<RibbonProps> = ({
                                         fontSize: '12px',
                                         fontFamily: font,
                                         cursor: 'pointer',
-                                        backgroundColor: currentFont === font ? '#3b0764' : 'transparent',
-                                        color: currentFont === font ? '#e9d5ff' : '#e4e4e7',
+                                        backgroundColor: currentFont === font ? (isDark ? '#3b0764' : '#eff6ff') : 'transparent',
+                                        color: currentFont === font ? (isDark ? '#e9d5ff' : '#1d4ed8') : (isDark ? '#e4e4e7' : '#1e293b'),
+                                        fontWeight: currentFont === font ? '600' : 'normal'
                                     }}
                                 >
                                     {font}
@@ -174,7 +189,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
                         </div>
 
                         {/* Font Size Buttons */}
-                        <div style={{ fontSize: '11px', color: '#71717a', marginBottom: '4px' }}>Ukuran Font:</div>
+                        <div style={{ fontSize: '11px', color: isDark ? '#71717a' : '#64748b', marginBottom: '4px' }}>Ukuran Font:</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
                             {fontSizes.map(sz => (
                                 <button
@@ -184,9 +199,9 @@ export const Ribbon: React.FC<RibbonProps> = ({
                                         padding: '3px 6px',
                                         borderRadius: '4px',
                                         fontSize: '11px',
-                                        border: '1px solid #3f3f46',
-                                        backgroundColor: currentSize === sz ? '#7c3aed' : '#18181b',
-                                        color: 'white',
+                                        border: isDark ? '1px solid #3f3f46' : '1px solid #cbd5e1',
+                                        backgroundColor: currentSize === sz ? (isDark ? '#7c3aed' : '#2563eb') : (isDark ? '#18181b' : '#f1f5f9'),
+                                        color: currentSize === sz ? 'white' : (isDark ? 'white' : '#1e293b'),
                                         cursor: 'pointer'
                                     }}
                                 >
@@ -196,10 +211,10 @@ export const Ribbon: React.FC<RibbonProps> = ({
                         </div>
 
                         {/* Font Colors & Effects */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '8px', borderTop: '1px solid #27272a' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '8px', borderTop: isDark ? '1px solid #27272a' : '1px solid #e2e8f0' }}>
                             <button
                                 onClick={() => fontColorRef.current?.click()}
-                                style={balloonItemBtnStyle}
+                                style={itemBtnStyle}
                                 title="Warna Teks"
                             >
                                 <IconFontColor />
@@ -215,7 +230,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
 
                             <button
                                 onClick={() => highlightColorRef.current?.click()}
-                                style={balloonItemBtnStyle}
+                                style={itemBtnStyle}
                                 title="Warna Sorotan (Highlight)"
                             >
                                 <IconHighlight />
@@ -231,16 +246,16 @@ export const Ribbon: React.FC<RibbonProps> = ({
                         </div>
 
                         <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
-                            <button onClick={() => editor?.toggleFormat('strikethrough')} style={balloonBtnStyle(!!fmt.strikethrough)} title="Coret / Strikethrough">
+                            <button onClick={() => editor?.toggleFormat('strikethrough')} style={btnStyle(!!fmt.strikethrough)} title="Coret / Strikethrough">
                                 <IconStrikethrough />
                             </button>
-                            <button onClick={() => editor?.toggleFormat('subscript')} style={balloonBtnStyle(!!fmt.subscript)} title="Subscript">
+                            <button onClick={() => editor?.toggleFormat('subscript')} style={btnStyle(!!fmt.subscript)} title="Subscript">
                                 <IconSubscript />
                             </button>
-                            <button onClick={() => editor?.toggleFormat('superscript')} style={balloonBtnStyle(!!fmt.superscript)} title="Superscript">
+                            <button onClick={() => editor?.toggleFormat('superscript')} style={btnStyle(!!fmt.superscript)} title="Superscript">
                                 <IconSuperscript />
                             </button>
-                            <button onClick={() => editor?.clearFormatting()} style={balloonBtnStyle(false)} title="Hapus Format">
+                            <button onClick={() => editor?.clearFormatting()} style={btnStyle(false)} title="Hapus Format">
                                 <IconClearFormatting />
                             </button>
                         </div>
@@ -252,7 +267,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
             <div style={{ position: 'relative' }}>
                 <button
                     onClick={() => toggleBalloon('paragraph')}
-                    style={balloonTriggerStyle(activeBalloon === 'paragraph')}
+                    style={trigStyle(activeBalloon === 'paragraph')}
                     title="Perataan Paragraf & Jarak Baris"
                 >
                     <IconAlignLeft />
@@ -261,27 +276,27 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 </button>
 
                 {activeBalloon === 'paragraph' && (
-                    <div style={balloonPopoverStyle}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    <div style={popoverStyle}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#a1a1aa' : '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
                             Perataan Teks
                         </div>
 
                         <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
-                            <button onClick={() => editor?.setAlignment('left')} style={balloonBtnStyle(fmt.align === 'left')} title="Rata Kiri">
+                            <button onClick={() => editor?.setAlignment('left')} style={btnStyle(fmt.align === 'left')} title="Rata Kiri">
                                 <IconAlignLeft />
                             </button>
-                            <button onClick={() => editor?.setAlignment('center')} style={balloonBtnStyle(fmt.align === 'center')} title="Rata Tengah">
+                            <button onClick={() => editor?.setAlignment('center')} style={btnStyle(fmt.align === 'center')} title="Rata Tengah">
                                 <IconAlignCenter />
                             </button>
-                            <button onClick={() => editor?.setAlignment('right')} style={balloonBtnStyle(fmt.align === 'right')} title="Rata Kanan">
+                            <button onClick={() => editor?.setAlignment('right')} style={btnStyle(fmt.align === 'right')} title="Rata Kanan">
                                 <IconAlignRight />
                             </button>
-                            <button onClick={() => editor?.setAlignment('justify')} style={balloonBtnStyle(fmt.align === 'justify')} title="Rata Kiri Kanan (Justify)">
+                            <button onClick={() => editor?.setAlignment('justify')} style={btnStyle(fmt.align === 'justify')} title="Rata Kiri Kanan (Justify)">
                                 <IconAlignJustify />
                             </button>
                         </div>
 
-                        <div style={{ fontSize: '11px', color: '#71717a', marginBottom: '4px' }}>Spasi Baris (Line Spacing):</div>
+                        <div style={{ fontSize: '11px', color: isDark ? '#71717a' : '#64748b', marginBottom: '4px' }}>Spasi Baris (Line Spacing):</div>
                         <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
                             {lineSpacings.map(sp => (
                                 <button
@@ -291,9 +306,9 @@ export const Ribbon: React.FC<RibbonProps> = ({
                                         padding: '3px 8px',
                                         borderRadius: '4px',
                                         fontSize: '11px',
-                                        border: '1px solid #3f3f46',
-                                        backgroundColor: fmt.lineHeight === sp ? '#7c3aed' : '#18181b',
-                                        color: 'white',
+                                        border: isDark ? '1px solid #3f3f46' : '1px solid #cbd5e1',
+                                        backgroundColor: fmt.lineHeight === sp ? (isDark ? '#7c3aed' : '#2563eb') : (isDark ? '#18181b' : '#f1f5f9'),
+                                        color: fmt.lineHeight === sp ? 'white' : (isDark ? 'white' : '#1e293b'),
                                         cursor: 'pointer'
                                     }}
                                 >
@@ -309,7 +324,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
             <div style={{ position: 'relative' }}>
                 <button
                     onClick={() => toggleBalloon('insert')}
-                    style={balloonTriggerStyle(activeBalloon === 'insert')}
+                    style={trigStyle(activeBalloon === 'insert')}
                     title="Sisipkan Berkas / Gambar"
                 >
                     <IconPlus />
@@ -318,31 +333,31 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 </button>
 
                 {activeBalloon === 'insert' && (
-                    <div style={balloonPopoverStyle}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    <div style={popoverStyle}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#a1a1aa' : '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
                             Sisipkan Elemen
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <button
                                 onClick={() => { onImportClick(); setActiveBalloon(null); }}
-                                style={{ ...balloonItemBtnStyle, justifyContent: 'flex-start', padding: '8px 10px' }}
+                                style={{ ...itemBtnStyle, justifyContent: 'flex-start', padding: '8px 10px' }}
                             >
                                 <IconExport />
                                 <div style={{ textAlign: 'left', marginLeft: '8px' }}>
                                     <div style={{ fontSize: '12px', fontWeight: 600 }}>Import Dokumen</div>
-                                    <div style={{ fontSize: '10px', color: '#71717a' }}>Docx, PDF, atau TXT</div>
+                                    <div style={{ fontSize: '10px', color: isDark ? '#71717a' : '#64748b' }}>Docx, PDF, atau TXT</div>
                                 </div>
                             </button>
 
                             <button
                                 onClick={() => { onImageInsertClick?.(); setActiveBalloon(null); }}
-                                style={{ ...balloonItemBtnStyle, justifyContent: 'flex-start', padding: '8px 10px' }}
+                                style={{ ...itemBtnStyle, justifyContent: 'flex-start', padding: '8px 10px' }}
                             >
                                 <IconPlus />
                                 <div style={{ textAlign: 'left', marginLeft: '8px' }}>
                                     <div style={{ fontSize: '12px', fontWeight: 600 }}>Sisipkan Gambar</div>
-                                    <div style={{ fontSize: '10px', color: '#71717a' }}>PNG, JPG, WebP</div>
+                                    <div style={{ fontSize: '10px', color: isDark ? '#71717a' : '#64748b' }}>PNG, JPG, WebP</div>
                                 </div>
                             </button>
                         </div>
@@ -354,7 +369,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
             <div style={{ position: 'relative' }}>
                 <button
                     onClick={() => { onLayoutClick(); }}
-                    style={balloonTriggerStyle(false)}
+                    style={trigStyle(false)}
                     title="Pengaturan Halaman & Margin"
                 >
                     <IconPosition />
@@ -366,14 +381,14 @@ export const Ribbon: React.FC<RibbonProps> = ({
             <div style={{ position: 'relative' }}>
                 <button
                     onClick={() => toggleBalloon('find')}
-                    style={balloonTriggerStyle(activeBalloon === 'find')}
+                    style={trigStyle(activeBalloon === 'find')}
                     title="Cari & Ganti Teks"
                 >
                     <IconFind />
                 </button>
 
                 {activeBalloon === 'find' && (
-                    <FindBalloonPanel editor={editor} onClose={() => setActiveBalloon(null)} />
+                    <FindBalloonPanel editor={editor} isDark={isDark} onClose={() => setActiveBalloon(null)} />
                 )}
             </div>
         </div>
@@ -381,10 +396,14 @@ export const Ribbon: React.FC<RibbonProps> = ({
 };
 
 // ── Find & Replace Mini Balloon ─────────────────────────────────────────────
-const FindBalloonPanel: React.FC<{ editor: Editor | null; onClose: () => void }> = ({ editor, onClose }) => {
+const FindBalloonPanel: React.FC<{ editor: Editor | null; isDark?: boolean; onClose: () => void }> = ({ editor, isDark = true, onClose }) => {
     const [findTerm, setFindTerm] = useState('');
     const [replaceTerm, setReplaceTerm] = useState('');
     const [msg, setMsg] = useState('');
+
+    const popoverStyle = getBalloonPopoverStyle(isDark);
+    const itemBtnStyle = getBalloonItemBtnStyle(isDark);
+    const inStyle = getInputStyle(isDark);
 
     const doFind = () => {
         if (!findTerm) return;
@@ -399,10 +418,10 @@ const FindBalloonPanel: React.FC<{ editor: Editor | null; onClose: () => void }>
     };
 
     return (
-        <div style={{ ...balloonPopoverStyle, width: '260px' }}>
+        <div style={{ ...popoverStyle, width: '260px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '12px', color: '#e4e4e7' }}>Cari & Ganti Teks</span>
-                <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer' }}>✕</button>
+                <span style={{ fontWeight: 700, fontSize: '12px', color: isDark ? '#e4e4e7' : '#1e293b' }}>Cari & Ganti Teks</span>
+                <button onClick={onClose} style={{ background: 'none', border: 'none', color: isDark ? '#71717a' : '#94a3b8', cursor: 'pointer' }}>✕</button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -411,28 +430,29 @@ const FindBalloonPanel: React.FC<{ editor: Editor | null; onClose: () => void }>
                     onChange={e => { setFindTerm(e.target.value); setMsg(''); }}
                     placeholder="Kata yang dicari..."
                     onKeyDown={e => e.key === 'Enter' && doFind()}
-                    style={inputStyle}
+                    style={inStyle}
                 />
                 <input
                     value={replaceTerm}
                     onChange={e => setReplaceTerm(e.target.value)}
                     placeholder="Ganti dengan..."
                     onKeyDown={e => e.key === 'Enter' && doReplace()}
-                    style={inputStyle}
+                    style={inStyle}
                 />
-                {msg && <div style={{ fontSize: '11px', color: '#a78bfa' }}>{msg}</div>}
+                {msg && <div style={{ fontSize: '11px', color: isDark ? '#a78bfa' : '#4f46e5' }}>{msg}</div>}
 
                 <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                    <button onClick={doFind} style={{ ...balloonItemBtnStyle, flex: 1, padding: '5px' }}>Cari</button>
-                    <button onClick={doReplace} style={{ ...balloonItemBtnStyle, flex: 1, padding: '5px', backgroundColor: '#7c3aed', color: 'white' }}>Ganti Semua</button>
+                    <button onClick={doFind} style={{ ...itemBtnStyle, flex: 1, padding: '5px' }}>Cari</button>
+                    <button onClick={doReplace} style={{ ...itemBtnStyle, flex: 1, padding: '5px', backgroundColor: isDark ? '#7c3aed' : '#2563eb', color: 'white' }}>Ganti Semua</button>
                 </div>
             </div>
         </div>
     );
+
 };
 
 // ── Styles ──────────────────────────────────────────────────────────────────
-const balloonBtnStyle = (active: boolean): React.CSSProperties => ({
+const balloonBtnStyle = (active: boolean, isDark: boolean = true): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -440,70 +460,80 @@ const balloonBtnStyle = (active: boolean): React.CSSProperties => ({
     height: '28px',
     borderRadius: '6px',
     border: 'none',
-    backgroundColor: active ? '#7c3aed' : 'transparent',
-    color: active ? 'white' : '#a1a1aa',
+    backgroundColor: active ? (isDark ? '#7c3aed' : '#2563eb') : 'transparent',
+    color: active ? 'white' : (isDark ? '#a1a1aa' : '#64748b'),
     cursor: 'pointer',
     transition: 'all 0.15s ease',
     outline: 'none',
 });
 
-const balloonTriggerStyle = (active: boolean): React.CSSProperties => ({
+const balloonTriggerStyle = (active: boolean, isDark: boolean = true): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
     gap: '3px',
     padding: '4px 8px',
     height: '28px',
     borderRadius: '6px',
-    border: active ? '1px solid #7c3aed' : '1px solid #27272a',
-    backgroundColor: active ? '#1e1b4b' : '#18181b',
-    color: active ? '#e9d5ff' : '#d4d4d8',
+    border: active 
+      ? (isDark ? '1px solid #7c3aed' : '1px solid #3b82f6') 
+      : (isDark ? '1px solid #27272a' : '1px solid #e2e8f0'),
+    backgroundColor: active 
+      ? (isDark ? '#1e1b4b' : '#eff6ff') 
+      : (isDark ? '#18181b' : '#f8fafc'),
+    color: active 
+      ? (isDark ? '#e9d5ff' : '#1d4ed8') 
+      : (isDark ? '#d4d4d8' : '#334155'),
     cursor: 'pointer',
     transition: 'all 0.15s ease',
     outline: 'none',
 });
 
-const balloonPopoverStyle: React.CSSProperties = {
+const getBalloonPopoverStyle = (isDark: boolean = true): React.CSSProperties => ({
     position: 'absolute',
     top: 'calc(100% + 8px)',
     left: 0,
     zIndex: 99999,
-    backgroundColor: '#121215',
-    border: '1px solid #27272a',
+    backgroundColor: isDark ? '#121215' : '#ffffff',
+    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
     borderRadius: '12px',
-    boxShadow: '0 10px 30px -5px rgba(0,0,0,0.8), 0 0 1px 1px rgba(255,255,255,0.05)',
+    boxShadow: isDark 
+      ? '0 10px 30px -5px rgba(0,0,0,0.8), 0 0 1px 1px rgba(255,255,255,0.05)' 
+      : '0 10px 30px -5px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05)',
     padding: '12px',
     minWidth: '220px',
     backdropFilter: 'blur(16px)',
-};
+    color: isDark ? '#e4e4e7' : '#1e293b',
+});
 
-const balloonItemBtnStyle: React.CSSProperties = {
+const getBalloonItemBtnStyle = (isDark: boolean = true): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: '6px 10px',
     borderRadius: '6px',
-    border: '1px solid #27272a',
-    backgroundColor: '#18181b',
-    color: '#e4e4e7',
+    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
+    backgroundColor: isDark ? '#18181b' : '#f8fafc',
+    color: isDark ? '#e4e4e7' : '#1e293b',
     cursor: 'pointer',
     outline: 'none',
     fontSize: '11px',
     transition: 'all 0.15s ease',
-};
+});
 
-const separatorStyle: React.CSSProperties = {
+const getSeparatorStyle = (isDark: boolean = true): React.CSSProperties => ({
     width: '1px',
     height: '18px',
-    backgroundColor: '#27272a',
+    backgroundColor: isDark ? '#27272a' : '#e2e8f0',
     margin: '0 4px',
-};
+});
 
-const inputStyle: React.CSSProperties = {
+const getInputStyle = (isDark: boolean = true): React.CSSProperties => ({
     padding: '6px 8px',
-    backgroundColor: '#18181b',
-    border: '1px solid #27272a',
+    backgroundColor: isDark ? '#18181b' : '#ffffff',
+    border: isDark ? '1px solid #27272a' : '1px solid #cbd5e1',
     borderRadius: '6px',
-    color: 'white',
+    color: isDark ? 'white' : '#0f172a',
     fontSize: '12px',
     outline: 'none',
-};
+});
+

@@ -14,6 +14,7 @@ interface KetikinEditorProps {
     showHeader?: boolean;
     showFooter?: boolean;
     backgroundColor?: string;
+    theme?: 'light' | 'dark';
     onEditorCreated?: (editor: Editor) => void;
     onCommandTriggered?: (cmd: any) => void;
 }
@@ -25,9 +26,11 @@ const KetikinEditor: React.FC<KetikinEditorProps> = ({
     showHeader = true,
     showFooter,
     backgroundColor,
+    theme,
     onEditorCreated,
     onCommandTriggered
 }) => {
+
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [editor, setEditor] = useState<Editor | null>(null);
@@ -152,9 +155,10 @@ const KetikinEditor: React.FC<KetikinEditorProps> = ({
         }
     };
 
+    const isDark = theme === 'dark' || (theme !== 'light' && (backgroundColor ? (backgroundColor.startsWith('#0') || backgroundColor.startsWith('#1')) : true));
     const shouldShowFooter = showFooter !== undefined ? showFooter : showHeader;
-    const canvasBg = backgroundColor || (showHeader ? '#e2e2e2' : '#09090b');
-    const rootBg = backgroundColor || (showHeader ? '#f3f2f1' : '#09090b');
+    const canvasBg = backgroundColor || (isDark ? '#0c0d12' : '#eef2f6');
+    const rootBg = backgroundColor || (isDark ? '#0c0d12' : '#eef2f6');
 
     return (
         <div className="ketikin-editor-root" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', backgroundColor: rootBg, overflow: 'hidden', fontFamily: '"Segoe UI", system-ui, sans-serif', position: 'relative' }}>
@@ -172,6 +176,7 @@ const KetikinEditor: React.FC<KetikinEditorProps> = ({
                         <div style={{ pointerEvents: 'auto', width: '100%' }}>
                             <Ribbon 
                                 editor={editor} 
+                                theme={isDark ? 'dark' : 'light'}
                                 onLayoutClick={() => setIsLayoutOpen(true)}
                                 onImportClick={handleImportFile}
                                 onImageInsertClick={() => setIsImageModalOpen(true)}
@@ -193,15 +198,16 @@ const KetikinEditor: React.FC<KetikinEditorProps> = ({
                             position: 'fixed',
                             left: `${contextMenu.x}px`,
                             top: `${contextMenu.y}px`,
-                            backgroundColor: '#1c1c1e',
-                            border: '1px solid #2c2c2e',
-                            borderRadius: '6px',
+                            backgroundColor: isDark ? '#1c1c1e' : '#ffffff',
+                            border: isDark ? '1px solid #2c2c2e' : '1px solid #e2e8f0',
+                            borderRadius: '8px',
                             padding: '4px 0',
                             zIndex: 99999,
                             minWidth: '180px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                            boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.6)' : '0 4px 16px rgba(0,0,0,0.12)',
                             fontFamily: 'system-ui, sans-serif',
-                            fontSize: '12px'
+                            fontSize: '12px',
+                            color: isDark ? '#ffffff' : '#0f172a'
                         }}
                     >
                         <ContextMenuItem onClick={() => handleContextCommand('saran')}>
@@ -213,7 +219,7 @@ const KetikinEditor: React.FC<KetikinEditorProps> = ({
                         <ContextMenuItem onClick={() => handleContextCommand('lanjutkan')}>
                             ➕ Lanjutkan Tulisan
                         </ContextMenuItem>
-                        <div style={{ height: '1px', backgroundColor: '#2c2c2e', margin: '4px 0' }} />
+                        <div style={{ height: '1px', backgroundColor: isDark ? '#2c2c2e' : '#e2e8f0', margin: '4px 0' }} />
                         <ContextMenuItem onClick={() => { editor?.copyToClipboard(); setContextMenu(null); }}>
                             Copy
                         </ContextMenuItem>
@@ -252,14 +258,14 @@ const KetikinEditor: React.FC<KetikinEditorProps> = ({
             {shouldShowFooter && (
                 <div style={{ 
                     height: '24px', 
-                    backgroundColor: '#f3f2f1', 
-                    borderTop: '1px solid #d2d0ce', 
+                    backgroundColor: isDark ? '#18181b' : '#f8fafc', 
+                    borderTop: isDark ? '1px solid #27272a' : '1px solid #e2e8f0', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'space-between', 
                     padding: '0 15px', 
                     fontSize: '11px', 
-                    color: '#605e5c',
+                    color: isDark ? '#a1a1aa' : '#64748b',
                     userSelect: 'none'
                 }}>
                     <div style={{ display: 'flex', gap: '15px' }}>
@@ -267,17 +273,18 @@ const KetikinEditor: React.FC<KetikinEditorProps> = ({
                         <div>{stats.words} words</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button onClick={() => { const z = Math.max(25, zoom - 10); setZoom(z); editor?.setScale(z/100); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 5px' }}>-</button>
+                        <button onClick={() => { const z = Math.max(25, zoom - 10); setZoom(z); editor?.setScale(z/100); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 5px', color: 'inherit' }}>-</button>
                         <input 
                             type="range" min="25" max="300" value={zoom} 
                             onChange={(e) => { const z = parseInt(e.target.value); setZoom(z); editor?.setScale(z/100); }}
                             style={{ width: '100px', height: '2px', cursor: 'pointer' }}
                         />
-                        <button onClick={() => { const z = Math.min(300, zoom + 10); setZoom(z); editor?.setScale(z/100); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 5px' }}>+</button>
+                        <button onClick={() => { const z = Math.min(300, zoom + 10); setZoom(z); editor?.setScale(z/100); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 5px', color: 'inherit' }}>+</button>
                         <div style={{ width: '35px', textAlign: 'right' }}>{zoom}%</div>
                     </div>
                 </div>
             )}
+
 
             <style>{`
                 @keyframes caret-blink { from { opacity: 1; } to { opacity: 0; } }
