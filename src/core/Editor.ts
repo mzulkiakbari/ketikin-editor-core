@@ -1,5 +1,5 @@
 import { RenderEngine } from './render/RenderEngine';
-import { DocElement, EditorConfig, RenderPage, RenderChar, KetikinDocument } from '../types/index';
+import { DocElement, EditorConfig, RenderPage, RenderChar, KetikinDocument, DocumentSetup, PageSize, Orientation, PageNumberConfig } from '../types/index';
 import { HistoryManager } from './HistoryManager';
 import { ImageTransformer } from './transform/ImageTransformer';
 import { InputHandler } from './InputHandler';
@@ -13,14 +13,25 @@ export class Editor {
   public pageContainers: HTMLElement[] = [];
   public pageWrappers: HTMLElement[] = [];
   private caretElement: HTMLDivElement | null = null;
-  private selection: { start: number; end: number } | null = null;
+  public selection: { start: number; end: number } | null = null;
 
   private scale: number = 1;
   private history: HistoryManager;
   private transformer: ImageTransformer;
   private inputHandler: InputHandler;
 
-  private config: EditorConfig;
+  public config: EditorConfig;
+  public currentSetup: DocumentSetup = {
+    pageSize: 'A4',
+    orientation: 'portrait',
+    margins: { top: 96, bottom: 96, left: 96, right: 96 }
+  };
+  public pageNumberConfig: PageNumberConfig = {
+    position: 'bottom-center',
+    format: 'arabic',
+    startAt: 1,
+    showOnFirstPage: true
+  };
   private pendingFormat: Record<string, any> | null = null;
   public selectedElementIndex: number | null = null;
 
@@ -46,8 +57,17 @@ export class Editor {
 
     if (schemaConfig?.setup) {
       const setup = schemaConfig.setup;
+      this.currentSetup = {
+        pageSize: setup.pageSize || 'A4',
+        orientation: setup.orientation || 'portrait',
+        margins: setup.margins ? { ...setup.margins } : { top: 96, bottom: 96, left: 96, right: 96 },
+        customWidth: setup.customWidth,
+        customHeight: setup.customHeight
+      };
       if (setup.pageSize === 'A4') { this.config.width = 794; this.config.height = 1123; }
       else if (setup.pageSize === 'Letter') { this.config.width = 816; this.config.height = 1056; }
+      else if (setup.pageSize === 'F4') { this.config.width = 816; this.config.height = 1247; }
+      else if (setup.pageSize === 'Legal') { this.config.width = 816; this.config.height = 1344; }
       else if (setup.pageSize === 'Custom' && setup.customWidth && setup.customHeight) {
         this.config.width = setup.customWidth;
         this.config.height = setup.customHeight;
@@ -57,7 +77,9 @@ export class Editor {
         this.config.width = this.config.height;
         this.config.height = temp;
       }
-      this.config.padding = setup.margins;
+      if (setup.margins) {
+        this.config.padding = { ...setup.margins };
+      }
     }
 
     this.engine = new RenderEngine(this.config);
@@ -72,6 +94,10 @@ export class Editor {
     setTimeout(() => this.container.focus({ preventScroll: true }), 50);
   }
 
+
+  public destroy() {
+    this.inputHandler.detach();
+  }
 
   public getContainer() { return this.container; }
   public getScale() { return this.scale; }
@@ -120,9 +146,16 @@ export class Editor {
   public render() {
     this.pages = this.engine.layout(this.elements);
     this.syncPageContainers();
-    this.engine.render(this.pages, this.pageContainers, this.selection, this.elements, this.transformer.dropTargetIndex);
+    this.engine.render(this.pages, this.pageContainers, this.selection, this.elements, this.transformer.dropTargetIndex, this.pageNumberConfig);
     this.updateCaret();
     this.onChange?.();
+  }
+
+  /** Fast lightweight render for selection/caret changes without running full layoutDoc */
+  public renderSelection() {
+    this.engine.render(this.pages, this.pageContainers, this.selection, this.elements, this.transformer.dropTargetIndex, this.pageNumberConfig);
+    this.updateCaret();
+    this.onSelectionChange?.();
   }
 
   public insertImage(dataUrl: string, width?: number, height?: number) {
@@ -187,8 +220,10 @@ export class Editor {
       w.style.width = `${scaledWidth}px`;
       w.style.height = `${scaledHeight}px`;
     });
-    // Scale the page canvas via CSS transform
+    // Scale the page canvas via CSS transform and ensure correct dimensions
     this.pageContainers.forEach(div => {
+      div.style.width = `${this.config.width}px`;
+      div.style.height = `${this.config.height}px`;
       div.style.transform = `scale(${this.scale})`;
       div.style.transformOrigin = 'top left';
     });
@@ -366,7 +401,7 @@ export class Editor {
     } else this.selection = { start: index, end: index };
 
     this.pendingFormat = null;
-    this.render();
+    this.renderSelection();
   }
 
   public handlePageMouseMove(x: number, y: number, pageIdx: number, target: HTMLElement) {
@@ -376,7 +411,7 @@ export class Editor {
       if (this.transformer.isTransforming === 'move') {
         this.transformer.dropTargetIndex = this.getCharIndexAt(x, y, pageIdx);
         target.style.cursor = 'move';
-        this.render();
+        this.renderSelection();
         return;
       }
       if (char && this.transformer.handleTransform(x, y, el, char, this.config)) {
@@ -389,7 +424,7 @@ export class Editor {
     if (this.selection) {
       this.selection.end = index;
       this.caretIndex = index;
-      this.render();
+      this.renderSelection();
     }
   }
 
@@ -422,11 +457,12 @@ export class Editor {
     while (end < fullText.length && !/[\s\n]/.test(fullText[end])) end++;
     this.selection = { start, end };
     this.caretIndex = end;
-    this.render();
+    this.renderSelection();
   }
 
-  public selectAll() { this.selection = { start: 0, end: this.elements.reduce((s, e) => s + e.text.length, 0) }; this.render(); }
-  public deselectAll() { this.selectedElementIndex = null; this.onSelectionChange?.(); this.render(); }
+  public selectAll() { this.selection = { start: 0, end: this.elements.reduce((s, e) => s + e.text.length, 0) }; this.renderSelection(); }
+  public clearSelection() { this.selection = null; this.renderSelection(); }
+  public deselectAll() { this.selectedElementIndex = null; this.clearSelection(); }
   public getSelectedText() {
     if (!this.selection) return '';
     const start = Math.min(this.selection.start, this.selection.end), end = Math.max(this.selection.start, this.selection.end);
@@ -599,12 +635,13 @@ export class Editor {
         const offsetStart = intersectStart - elStart, offsetEnd = intersectEnd - elStart;
         el.text = el.text.substring(0, offsetStart) + el.text.substring(offsetEnd);
       }
-      currentTotal += el.text.length;
+      currentTotal = elEnd;
     }
     this.elements = this.elements.filter((el, idx) => el.text.length > 0 || idx === 0);
     this.caretIndex = start;
     this.selection = null;
     this.render();
+    this.onChange?.();
   }
 
   public moveCaret(dir: number, shift: boolean) {
@@ -618,7 +655,7 @@ export class Editor {
       this.pendingFormat = null; // moving cursor resets pending format
     }
     this.caretIndex = newIndex;
-    this.render();
+    this.renderSelection();
   }
 
   public moveCaretLine(dir: number, shift: boolean) {
@@ -691,6 +728,7 @@ export class Editor {
         i++;
       }
       this.render();
+      this.onChange?.();
     } else {
       this.pendingFormat = { ...this.getActiveFormats(), ...props };
       this.onSelectionChange?.(); // Trigger UI update for pending format
@@ -775,9 +813,14 @@ export class Editor {
   }
 
   // ── CLIPBOARD ─────────────────────────────────────────────────────────────
+  public internalClipboardText: string = '';
+
   public copyToClipboard() {
     const text = this.getSelectedText();
-    if (text) navigator.clipboard?.writeText(text).catch(() => { });
+    if (text) {
+      this.internalClipboardText = text;
+      navigator.clipboard?.writeText(text).catch(() => { });
+    }
   }
 
   public cutToClipboard() {
@@ -790,10 +833,28 @@ export class Editor {
   public async pasteFromClipboard() {
     try {
       const text = await navigator.clipboard.readText();
-      if (text) this.insertText(text);
+      if (text) {
+        this.insertText(text);
+        return;
+      }
     } catch {
-      // Fall back silently — browser paste event handles real pastes
+      // Fall back silently
     }
+    if (this.internalClipboardText) {
+      this.insertText(this.internalClipboardText);
+    }
+  }
+
+  public async hasClipboardContent(): Promise<boolean> {
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+        const text = await navigator.clipboard.readText();
+        if (text && text.length > 0) return true;
+      }
+    } catch {
+      // ignore permission errors
+    }
+    return !!this.internalClipboardText && this.internalClipboardText.length > 0;
   }
 
   // ── FORMATTING ────────────────────────────────────────────────────────────
@@ -837,19 +898,105 @@ export class Editor {
   }
 
   // ── PARAGRAPH STYLES ──────────────────────────────────────────────────────
-  public applyStyle(style: 'Normal' | 'NoSpacing' | 'Heading1' | 'Heading2' | 'Heading3') {
+  public applyStyle(style: 'Normal' | 'NoSpacing' | 'Title' | 'Heading1' | 'Heading2' | 'Heading3' | 'Quote') {
     this.history.pushHistory(this.elements);
     const styleMap: Record<string, Partial<DocElement>> = {
-      Normal: { fontSize: 12, bold: false, italic: false, fontFamily: 'Times New Roman', lineHeight: 1.15, spacingAfter: 8, headingLevel: undefined },
-      NoSpacing: { fontSize: 12, bold: false, italic: false, fontFamily: 'Times New Roman', lineHeight: 1.0, spacingAfter: 0, headingLevel: undefined },
-      Heading1: { fontSize: 28, bold: true, italic: false, fontFamily: 'Times New Roman', lineHeight: 1.15, spacingAfter: 12, headingLevel: 1 },
-      Heading2: { fontSize: 22, bold: true, italic: false, fontFamily: 'Times New Roman', lineHeight: 1.15, spacingAfter: 8, headingLevel: 2 },
-      Heading3: { fontSize: 18, bold: true, italic: true, fontFamily: 'Times New Roman', lineHeight: 1.15, spacingAfter: 6, headingLevel: 3 },
+      Normal: { fontSize: 12, bold: false, italic: false, align: 'left', fontFamily: 'Times New Roman', lineHeight: 1.15, spacingBefore: 0, spacingAfter: 8, headingLevel: undefined, isQuote: false, indentLeft: 0, firstLineIndent: 0 },
+      NoSpacing: { fontSize: 12, bold: false, italic: false, align: 'left', fontFamily: 'Times New Roman', lineHeight: 1.0, spacingBefore: 0, spacingAfter: 0, headingLevel: undefined, isQuote: false, indentLeft: 0, firstLineIndent: 0 },
+      Title: { fontSize: 24, bold: true, italic: false, align: 'center', fontFamily: 'Times New Roman', lineHeight: 1.25, spacingBefore: 0, spacingAfter: 16, headingLevel: undefined, isQuote: false },
+      Heading1: { fontSize: 16, bold: true, italic: false, align: 'center', fontFamily: 'Times New Roman', lineHeight: 1.5, spacingBefore: 12, spacingAfter: 12, headingLevel: 1, isQuote: false },
+      Heading2: { fontSize: 14, bold: true, italic: false, align: 'left', fontFamily: 'Times New Roman', lineHeight: 1.5, spacingBefore: 8, spacingAfter: 6, headingLevel: 2, isQuote: false },
+      Heading3: { fontSize: 12, bold: true, italic: true, align: 'left', fontFamily: 'Times New Roman', lineHeight: 1.5, spacingBefore: 6, spacingAfter: 4, headingLevel: 3, isQuote: false },
+      Quote: { fontSize: 11, bold: false, italic: true, align: 'justify', fontFamily: 'Times New Roman', lineHeight: 1.0, spacingBefore: 8, spacingAfter: 8, indentLeft: 36, indentRight: 36, isQuote: true, headingLevel: undefined },
     };
     const props = styleMap[style];
     if (!props) return;
 
     this.applyParagraphFormat(props);
+  }
+
+  // ── INDENTATION ───────────────────────────────────────────────────────────
+  public increaseIndent() {
+    const elIdx = this.getElementIndexForChar(this.caretIndex);
+    const el = this.elements[elIdx];
+    const current = el.indentLeft || 0;
+    this.applyParagraphFormat({ indentLeft: Math.min(240, current + 24) });
+  }
+
+  public decreaseIndent() {
+    const elIdx = this.getElementIndexForChar(this.caretIndex);
+    const el = this.elements[elIdx];
+    const current = el.indentLeft || 0;
+    this.applyParagraphFormat({ indentLeft: Math.max(0, current - 24) });
+  }
+
+  public toggleFirstLineIndent(indent: number = 36) {
+    const elIdx = this.getElementIndexForChar(this.caretIndex);
+    const el = this.elements[elIdx];
+    const current = el.firstLineIndent || 0;
+    this.applyParagraphFormat({ firstLineIndent: current > 0 ? 0 : indent });
+  }
+
+  // ── PAGE SETUP & MARGINS ──────────────────────────────────────────────────
+  public setMargins(margins: { top: number; bottom: number; left: number; right: number }) {
+    this.config.padding = { ...margins };
+    this.currentSetup.margins = { ...margins };
+    this.engine.updateConfig(this.config);
+    this.syncPageContainers();
+    this.render();
+    this.onChange?.();
+  }
+
+  public setPageSize(size: PageSize, customW?: number, customH?: number) {
+    this.currentSetup.pageSize = size;
+    let baseW = 794;
+    let baseH = 1123;
+    if (size === 'A4') { baseW = 794; baseH = 1123; }
+    else if (size === 'Letter') { baseW = 816; baseH = 1056; }
+    else if (size === 'F4') { baseW = 816; baseH = 1247; }
+    else if (size === 'Legal') { baseW = 816; baseH = 1344; }
+    else if (size === 'Custom' && customW && customH) { baseW = customW; baseH = customH; }
+
+    if (this.currentSetup.orientation === 'landscape') {
+      this.config.width = Math.max(baseW, baseH);
+      this.config.height = Math.min(baseW, baseH);
+    } else {
+      this.config.width = Math.min(baseW, baseH);
+      this.config.height = Math.max(baseW, baseH);
+    }
+
+    this.engine.updateConfig(this.config);
+    this.syncPageContainers();
+    this.render();
+    this.onChange?.();
+  }
+
+  public setOrientation(orientation: Orientation) {
+    if (this.currentSetup.orientation === orientation) return;
+    this.currentSetup.orientation = orientation;
+    const w = this.config.width;
+    const h = this.config.height;
+    if (orientation === 'landscape') {
+      this.config.width = Math.max(w, h);
+      this.config.height = Math.min(w, h);
+    } else {
+      this.config.width = Math.min(w, h);
+      this.config.height = Math.max(w, h);
+    }
+    this.engine.updateConfig(this.config);
+    this.syncPageContainers();
+    this.render();
+    this.onChange?.();
+  }
+
+  public getPageSetup(): DocumentSetup {
+    return {
+      pageSize: this.currentSetup.pageSize,
+      orientation: this.currentSetup.orientation,
+      margins: { ...this.config.padding },
+      customWidth: this.config.width,
+      customHeight: this.config.height
+    };
   }
 
   // ── LISTS ─────────────────────────────────────────────────────────────────
@@ -861,6 +1008,50 @@ export class Editor {
     } else {
       this.applyParagraphFormat({ listType: type, listLevel: el.listLevel ?? 0 });
     }
+  }
+
+  // ── PAGE BREAK & HORIZONTAL RULE ──────────────────────────────────────────
+  public insertPageBreak() {
+    this.insertText('\f');
+    this.onChange?.();
+  }
+
+  public insertHorizontalRule() {
+    const hrEl: DocElement = {
+      elementType: 'divider',
+      text: '\n',
+      fontSize: 12,
+      fontFamily: 'Times New Roman'
+    };
+    let currentTotal = 0, insertIdx = this.elements.length;
+    for (let i = 0; i < this.elements.length; i++) {
+      if (this.caretIndex <= currentTotal + this.elements[i].text.length) {
+        insertIdx = i + 1;
+        break;
+      }
+      currentTotal += this.elements[i].text.length;
+    }
+    this.elements.splice(insertIdx, 0, hrEl);
+    this.caretIndex = currentTotal + hrEl.text.length;
+    this.render();
+    this.history.pushHistory(this.elements);
+    this.onChange?.();
+  }
+
+  // ── HYPERLINK ─────────────────────────────────────────────────────────────
+  public setLink(url: string | undefined) {
+    if (url && url.trim().length > 0) {
+      this.applyFormat({ link: url.trim(), color: '#2563eb', underline: true });
+    } else {
+      this.applyFormat({ link: undefined, underline: false, color: '#000000' });
+    }
+  }
+
+  // ── PAGE NUMBER CONFIG ────────────────────────────────────────────────────
+  public setPageNumberConfig(config: Partial<PageNumberConfig>) {
+    this.pageNumberConfig = { ...this.pageNumberConfig, ...config };
+    this.render();
+    this.onChange?.();
   }
 
   // ── FIND & REPLACE ────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocale } from '../../locales';
 
 interface ImageInsertModalProps {
     isOpen: boolean;
@@ -9,6 +10,7 @@ interface ImageInsertModalProps {
 export const ImageInsertModal: React.FC<ImageInsertModalProps> = ({ isOpen, onClose, onInsert }) => {
     const [tab, setTab] = useState<'Local' | 'URL' | 'Stock'>('Local');
     const [url, setUrl] = useState('');
+    const locale = useLocale();
 
     if (!isOpen) return null;
 
@@ -54,25 +56,25 @@ export const ImageInsertModal: React.FC<ImageInsertModalProps> = ({ isOpen, onCl
         <div style={modalStyle} onClick={onClose}>
             <div style={contentStyle} onClick={e => e.stopPropagation()}>
                 <div style={headerStyle}>
-                    <div style={{ fontWeight: '600', fontSize: '16px' }}>Insert Image</div>
+                    <div style={{ fontWeight: '600', fontSize: '16px' }}>{locale.dialogs.insertImageTitle}</div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }}>&times;</button>
                 </div>
                 <div style={tabGroupStyle}>
-                    <div style={tabStyle(tab === 'Local')} onClick={() => setTab('Local')}>Local File</div>
-                    <div style={tabStyle(tab === 'URL')} onClick={() => setTab('URL')}>From URL</div>
-                    <div style={tabStyle(tab === 'Stock')} onClick={() => setTab('Stock')}>Stock Images</div>
+                    <div style={tabStyle(tab === 'Local')} onClick={() => setTab('Local')}>{locale.dialogs.localFileTab}</div>
+                    <div style={tabStyle(tab === 'URL')} onClick={() => setTab('URL')}>{locale.dialogs.fromUrlTab}</div>
+                    <div style={tabStyle(tab === 'Stock')} onClick={() => setTab('Stock')}>{locale.dialogs.stockImagesTab}</div>
                 </div>
                 <div style={{ padding: '30px', minHeight: '150px' }}>
                     {tab === 'Local' && (
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ marginBottom: '20px', color: '#605e5c' }}>Select an image file from your computer</div>
+                            <div style={{ marginBottom: '20px', color: '#605e5c' }}>{locale.dialogs.selectImagePrompt}</div>
                             <input type="file" accept="image/*" onChange={handleLocalUpload} style={{ display: 'none' }} id="img-upload-input" />
-                            <label htmlFor="img-upload-input" style={{ backgroundColor: '#185abd', color: 'white', padding: '8px 24px', borderRadius: '2px', cursor: 'pointer', display: 'inline-block' }}>Choose File</label>
+                            <label htmlFor="img-upload-input" style={{ backgroundColor: '#185abd', color: 'white', padding: '8px 24px', borderRadius: '2px', cursor: 'pointer', display: 'inline-block' }}>{locale.dialogs.chooseFileBtn}</label>
                         </div>
                     )}
                     {tab === 'URL' && (
                         <div>
-                            <div style={{ marginBottom: '10px', color: '#605e5c' }}>Paste the image link below:</div>
+                            <div style={{ marginBottom: '10px', color: '#605e5c' }}>{locale.dialogs.pasteLinkPrompt}</div>
                             <input 
                                 type="text" value={url} onChange={e => setUrl(e.target.value)}
                                 placeholder="https://example.com/image.png"
@@ -81,7 +83,7 @@ export const ImageInsertModal: React.FC<ImageInsertModalProps> = ({ isOpen, onCl
                             <button 
                                 onClick={() => url && onInsert(url)}
                                 style={{ marginTop: '20px', width: '100%', backgroundColor: '#185abd', color: 'white', border: 'none', padding: '10px', borderRadius: '2px', cursor: 'pointer' }}
-                            >Insert</button>
+                            >{locale.dialogs.insertBtn}</button>
                         </div>
                     )}
                     {tab === 'Stock' && (

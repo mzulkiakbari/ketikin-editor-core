@@ -16,9 +16,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "example:dev": "vite example --config example/vite.config.ts",
+    "example:build": "vite build example --config example/vite.config.ts"
   },
   "dependencies": {
+    "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "pdfjs-dist": "^5.6.205"
   },
@@ -32,6 +35,8 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "typescript": "^5.2.2",
     "vite": "^5.0.0",
     "vite-plugin-dts": "^3.6.0"

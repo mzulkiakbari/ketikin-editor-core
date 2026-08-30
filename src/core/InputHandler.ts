@@ -4,21 +4,57 @@ export class InputHandler {
   private editor: Editor;
   private isMouseDown: boolean = false;
 
+  private boundKeyDown: (e: KeyboardEvent) => void;
+  private boundCopy: (e: ClipboardEvent) => void;
+  private boundCut: (e: ClipboardEvent) => void;
+  private boundPaste: (e: ClipboardEvent) => void;
+  private boundMouseDown: (e: MouseEvent) => void;
+  private boundMouseMove: (e: MouseEvent) => void;
+  private boundMouseUp: (e: MouseEvent) => void;
+  private boundDoubleClick: (e: MouseEvent) => void;
+  private boundWheel: (e: WheelEvent) => void;
+
   constructor(editor: Editor) {
     this.editor = editor;
+
+    this.boundKeyDown = this.handleKeyDown.bind(this);
+    this.boundCopy = this.handleCopy.bind(this);
+    this.boundCut = this.handleCut.bind(this);
+    this.boundPaste = this.handlePaste.bind(this);
+    this.boundMouseDown = this.handleMouseDown.bind(this);
+    this.boundMouseMove = this.handleMouseMove.bind(this);
+    this.boundMouseUp = this.handleMouseUp.bind(this);
+    this.boundDoubleClick = this.handleDoubleClick.bind(this);
+    this.boundWheel = this.handleWheel.bind(this);
   }
 
   public attach() {
     const container = this.editor.getContainer();
-    container.addEventListener('keydown', this.handleKeyDown.bind(this));
-    container.addEventListener('dblclick', this.handleDoubleClick.bind(this));
-    window.addEventListener('mousedown', this.handleMouseDown.bind(this));
-    window.addEventListener('mousemove', this.handleMouseMove.bind(this));
-    window.addEventListener('mouseup', this.handleMouseUp.bind(this));
-    container.addEventListener('copy', this.handleCopy.bind(this));
-    container.addEventListener('paste', this.handlePaste.bind(this));
+    window.addEventListener('keydown', this.boundKeyDown);
+    window.addEventListener('copy', this.boundCopy);
+    window.addEventListener('cut', this.boundCut);
+    window.addEventListener('paste', this.boundPaste);
+    container.addEventListener('dblclick', this.boundDoubleClick);
+    window.addEventListener('mousedown', this.boundMouseDown);
+    window.addEventListener('mousemove', this.boundMouseMove);
+    window.addEventListener('mouseup', this.boundMouseUp);
     if (container.parentElement) {
-      container.parentElement.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
+      container.parentElement.addEventListener('wheel', this.boundWheel, { passive: false });
+    }
+  }
+
+  public detach() {
+    const container = this.editor.getContainer();
+    window.removeEventListener('keydown', this.boundKeyDown);
+    window.removeEventListener('copy', this.boundCopy);
+    window.removeEventListener('cut', this.boundCut);
+    window.removeEventListener('paste', this.boundPaste);
+    container.removeEventListener('dblclick', this.boundDoubleClick);
+    window.removeEventListener('mousedown', this.boundMouseDown);
+    window.removeEventListener('mousemove', this.boundMouseMove);
+    window.removeEventListener('mouseup', this.boundMouseUp);
+    if (container.parentElement) {
+      container.parentElement.removeEventListener('wheel', this.boundWheel);
     }
   }
 
@@ -33,16 +69,51 @@ export class InputHandler {
     }
   }
 
+  private isInputElement(target: HTMLElement | null): boolean {
+    if (!target) return false;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+  }
+
   private handleKeyDown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    if (this.isInputElement(target)) {
+      return;
+    }
+
     if (e.ctrlKey || e.metaKey) {
       if (e.key === '=' || e.key === '+') { e.preventDefault(); this.editor.setScale(Math.min(3, this.editor.getScale() + 0.1)); return; }
       if (e.key === '-') { e.preventDefault(); this.editor.setScale(Math.max(0.25, this.editor.getScale() - 0.1)); return; }
       if (e.key === '0') { e.preventDefault(); this.editor.setScale(1); return; }
 
       const key = e.key.toLowerCase();
-      if (key === 'z') { e.preventDefault(); this.editor.undo(); return; }
+      if (key === 'z') { 
+        e.preventDefault(); 
+        if (e.shiftKey) this.editor.redo(); 
+        else this.editor.undo(); 
+        return; 
+      }
       if (key === 'y') { e.preventDefault(); this.editor.redo(); return; }
       if (key === 'a') { e.preventDefault(); this.editor.selectAll(); return; }
+      if (key === 'c') {
+        const text = this.editor.getSelectedText();
+        if (text) {
+          this.editor.copyToClipboard();
+        }
+        return;
+      }
+      if (key === 'x') {
+        const text = this.editor.getSelectedText();
+        if (text) {
+          e.preventDefault();
+          this.editor.cutToClipboard();
+        }
+        return;
+      }
+      if (key === 'v') {
+        // Native paste event will fire or fallback
+        return;
+      }
       if (key === 'b') { e.preventDefault(); this.editor.toggleFormat('bold'); return; }
       if (key === 'i') { e.preventDefault(); this.editor.toggleFormat('italic'); return; }
       if (key === 'u') { e.preventDefault(); this.editor.toggleFormat('underline'); return; }
@@ -70,6 +141,25 @@ export class InputHandler {
   private handleMouseDown(e: MouseEvent) {
     const target = e.target as HTMLElement;
     const pageIdx = this.editor.pageContainers.findIndex(c => c.contains(target) || c === target);
+
+    if (e.button === 2) {
+      // Right click: Jika belum ada seleksi teks, tempatkan kursor pada posisi klik kanan
+      const hasSelection = !!this.editor.getSelectedText();
+      if (!hasSelection && pageIdx !== -1) {
+        const rect = this.editor.pageContainers[pageIdx].getBoundingClientRect();
+        const x = (e.clientX - rect.left) / this.editor.getScale();
+        const y = (e.clientY - rect.top) / this.editor.getScale();
+        const index = this.editor.getCharIndexAt(x, y, pageIdx);
+        this.editor.caretIndex = index;
+        this.editor.selection = null;
+        this.editor.renderSelection();
+      }
+      return;
+    }
+
+    // Hanya tangani tombol kiri utama untuk penempatan kursor dan drag-selection
+    if (e.button !== 0) return;
+
     if (pageIdx !== -1) {
       const rect = this.editor.pageContainers[pageIdx].getBoundingClientRect();
       const x = (e.clientX - rect.left) / this.editor.getScale();
@@ -92,7 +182,8 @@ export class InputHandler {
     this.editor.handlePageMouseMove(x, y, pageIdx, target);
   }
 
-  private handleMouseUp() {
+  private handleMouseUp(e: MouseEvent) {
+    if (e.button !== 0) return;
     if (this.isMouseDown) {
       this.isMouseDown = false;
       this.editor.handlePageMouseUp();
@@ -111,14 +202,37 @@ export class InputHandler {
   }
 
   private handleCopy(e: ClipboardEvent) {
+    const target = e.target as HTMLElement;
+    if (this.isInputElement(target)) return;
+
     const text = this.editor.getSelectedText();
-    if (text && e.clipboardData) {
-      e.clipboardData.setData('text/plain', text);
-      e.preventDefault();
+    if (text) {
+      if (e.clipboardData) {
+        e.clipboardData.setData('text/plain', text);
+        e.preventDefault();
+      }
+      this.editor.copyToClipboard();
+    }
+  }
+
+  private handleCut(e: ClipboardEvent) {
+    const target = e.target as HTMLElement;
+    if (this.isInputElement(target)) return;
+
+    const text = this.editor.getSelectedText();
+    if (text) {
+      if (e.clipboardData) {
+        e.clipboardData.setData('text/plain', text);
+        e.preventDefault();
+      }
+      this.editor.cutToClipboard();
     }
   }
 
   private handlePaste(e: ClipboardEvent) {
+    const target = e.target as HTMLElement;
+    if (this.isInputElement(target)) return;
+
     const text = e.clipboardData?.getData('text/plain');
     if (text) {
       e.preventDefault();

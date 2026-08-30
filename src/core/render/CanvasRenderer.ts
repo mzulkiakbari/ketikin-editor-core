@@ -1,4 +1,20 @@
-import { DocElement, EditorConfig, RenderPage, RenderChar } from '../../types/index';
+import { DocElement, EditorConfig, RenderPage, RenderChar, PageNumberConfig } from '../../types/index';
+
+function toRoman(num: number): string {
+  const lookup: [number, string][] = [
+    [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+    [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+  ];
+  let roman = '';
+  for (const [val, sym] of lookup) {
+    while (num >= val) {
+      roman += sym;
+      num -= val;
+    }
+  }
+  return roman || `${num}`;
+}
 
 export class CanvasRenderer {
   private config: EditorConfig;
@@ -13,7 +29,14 @@ export class CanvasRenderer {
     this.config = config;
   }
 
-  public render(pages: RenderPage[], containers: HTMLElement[], selection?: { start: number, end: number } | null, elements?: DocElement[], dropTargetIndex?: number | null) {
+  public render(
+    pages: RenderPage[],
+    containers: HTMLElement[],
+    selection?: { start: number, end: number } | null,
+    elements?: DocElement[],
+    dropTargetIndex?: number | null,
+    pageNumberConfig?: PageNumberConfig
+  ) {
     const dpr = window.devicePixelRatio || 1;
 
     pages.forEach((page, idx) => {
@@ -70,16 +93,96 @@ export class CanvasRenderer {
 
       // --- PASS 3: Render 'front' elements ---
       this.drawPageContent(ctx, page, elements, (char) => (char as any).wrapping === 'front');
+
+      // --- PASS 4: Render Page Numbers ---
+      if (pageNumberConfig && pageNumberConfig.position !== 'none') {
+        const pageNum = idx + (pageNumberConfig.startAt || 1);
+        const shouldShow = idx === 0 ? (pageNumberConfig.showOnFirstPage ?? true) : true;
+        if (shouldShow) {
+          let numStr = `${pageNum}`;
+          if (pageNumberConfig.format === 'roman-lower') {
+            numStr = toRoman(pageNum).toLowerCase();
+          } else if (pageNumberConfig.format === 'roman-upper') {
+            numStr = toRoman(pageNum).toUpperCase();
+          }
+
+          ctx.font = '11px "Times New Roman", serif';
+          ctx.fillStyle = '#64748b';
+          let posX = this.config.width / 2;
+          let posY = this.config.height - 32;
+          ctx.textAlign = 'center';
+
+          if (pageNumberConfig.position === 'bottom-right') {
+            posX = this.config.width - this.config.padding.right;
+            ctx.textAlign = 'right';
+          } else if (pageNumberConfig.position === 'top-right') {
+            posX = this.config.width - this.config.padding.right;
+            posY = 42;
+            ctx.textAlign = 'right';
+          } else if (pageNumberConfig.position === 'top-center') {
+            posX = this.config.width / 2;
+            posY = 42;
+            ctx.textAlign = 'center';
+          }
+
+          ctx.fillText(numStr, posX, posY);
+          ctx.textAlign = 'left';
+        }
+      }
     });
   }
 
   private drawPageContent(ctx: CanvasRenderingContext2D, page: RenderPage, elements: DocElement[] | undefined, filter: (char: RenderChar) => boolean) {
     page.lines.forEach(line => {
+      // Line-level decorations (quotes, list bullet/numbers)
+      if (line.chars.length > 0) {
+        const firstChar = line.chars[0];
+        const el = elements?.[firstChar.elementIndex];
+
+        // Draw Quote left indicator bar
+        if (el?.isQuote) {
+          ctx.fillStyle = '#94a3b8';
+          const quoteBarX = this.config.padding.left + (el.indentLeft || 36) - 14;
+          ctx.fillRect(quoteBarX, line.y, 3, line.height || 18);
+        }
+
+        // Draw List bullet / number for paragraph start line
+        if (line.isParagraphStart && el?.listType) {
+          const fontName = el.fontFamily || 'Times New Roman';
+          const fontSize = firstChar.fontSize || el.fontSize || 12;
+          const bulletColor = firstChar.color || el.color || 'black';
+          const listLevel = el.listLevel || 0;
+          const indentLeft = el.indentLeft || 0;
+          const listX = this.config.padding.left + indentLeft + (28 * listLevel);
+
+          ctx.fillStyle = bulletColor;
+          if (el.listType === 'bullet') {
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.fillText('•', listX + 8, line.y + firstChar.ascent);
+          } else if (el.listType === 'number') {
+            ctx.font = `${firstChar.bold ? 'bold ' : ''}${fontSize}px ${fontName}`;
+            ctx.fillText(`${line.listNumber ?? 1}.`, listX + 4, line.y + firstChar.ascent);
+          }
+        }
+      }
+
       line.chars.forEach(char => {
         if (!filter(char)) return;
 
         const el = elements?.[char.elementIndex];
 
+        // Horizontal Divider Line
+        if (el?.elementType === 'divider' || (char as any).isDivider) {
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(char.x, line.y + line.height / 2);
+          ctx.lineTo(char.x + char.width, line.y + line.height / 2);
+          ctx.stroke();
+          return;
+        }
+
+        // Image
         if (el?.elementType === 'image' && el.imageUrl && char.char !== '\n') {
           const cached = this.imageCache.get(el.imageUrl);
           if (cached && cached.complete && cached.naturalWidth > 0) {
@@ -146,11 +249,12 @@ export class CanvasRenderer {
 
         const fontName = el?.fontFamily || 'Calibri';
         ctx.font = `${char.italic ? 'italic ' : ''}${char.bold ? 'bold ' : ''}${char.fontSize}px ${fontName}`;
-        ctx.fillStyle = char.color || 'black';
+        ctx.fillStyle = el?.link ? '#2563eb' : (char.color || 'black');
         ctx.fillText(char.char, char.x, char.y + char.ascent);
 
-        if (char.underline) {
-          ctx.strokeStyle = char.color || 'black';
+        // Hyperlink or standard Underline
+        if (char.underline || el?.link) {
+          ctx.strokeStyle = el?.link ? '#2563eb' : (char.color || 'black');
           ctx.lineWidth = Math.max(1, char.fontSize / 15);
           ctx.beginPath();
           ctx.moveTo(char.x, char.y + char.ascent + 2);

@@ -1,15 +1,15 @@
 # Ketikin Editor Core
 
 > **High-Performance Canvas-Based Document Editor Engine for Indonesian & Academic Workflows**  
-> *Project Status: **v0.1.1-beta***
+> *Project Status: **v1.0.0***
 
 ---
 
 ## 🌟 Overview
 
-**Ketikin Editor Core** is a powerful, lightweight, high-performance rich text document editor engine built from scratch using the **HTML5 Canvas API**. Designed to deliver a desktop-grade word processing experience (inspired by OnlyOffice and Microsoft Word) directly inside the browser, it eliminates the unpredictable formatting quirks and DOM limitations of traditional `contenteditable` or DOM-based editors.
+**Ketikin Editor Core** is a powerful, lightweight, high-performance rich text document editor engine built from scratch using the **HTML5 Canvas API**. Designed to deliver a desktop-grade word processing experience (inspired by Microsoft Word and OnlyOffice) directly inside the browser, it eliminates the unpredictable formatting quirks and DOM limitations of traditional `contenteditable` or DOM-based editors.
 
-It serves as the core document canvas engine for **[KetikinAI](https://github.com/noonor/ketikin-web)**, providing deterministic A4 pagination, precision academic margins, native DOCX XML parsing, and direct PDF vector import.
+It serves as the core document canvas engine for **[KetikinAI](https://github.com/noonor/ketikin-web)**, providing deterministic A4 pagination, precision academic margins, native DOCX XML parsing, direct PDF vector import, customizable ribbon toolbar styles, intelligent multi-page grid layouts, and context menu AI integration.
 
 ---
 
@@ -17,48 +17,58 @@ It serves as the core document canvas engine for **[KetikinAI](https://github.co
 
 - **Core Engine**: [TypeScript](https://www.typescriptlang.org/) (Strict Mode), Native HTML5 Canvas API
 - **Build Tool & Bundler**: [Vite 5](https://vitejs.dev/), `vite-plugin-dts`
-- **UI Wrapper**: [React 18 / 19](https://react.dev/) Component Wrapper (`ReactWrapper.tsx`)
+- **UI Framework**: [React 18 / 19](https://react.dev/) Component System
 - **Document Parsers**:
   - `jszip` + Browser Native `DOMParser` — Direct OpenXML (`word/document.xml`) parser without third-party abstraction loss
   - `pdfjs-dist` — Vector PDF parsing and page-by-page rendering
+  - `jspdf` — Client-side PDF generation pipeline
 - **Format Output**: ES Modules (`./dist/ketikin-editor.js`) & UMD (`./dist/ketikin-editor.umd.cjs`) with complete TypeScript declarations (`./dist/index.d.ts`)
 
 ---
 
 ## ✨ Key Features
 
-### 1. 🎨 Pure Canvas Rendering Engine
+### 1. 🎨 Pure Canvas Rendering Engine (Zero-Latency)
 - Zero dependency on HTML `contenteditable` or browser DOM formatting quirks.
-- Pixel-perfect text rendering, selection highlights, custom cursors, and layout calculation across all modern browsers.
+- Pixel-perfect text rendering, 60fps selection highlights, custom cursors, and layout calculation across all modern browsers.
+- Isolated `renderSelection()` pipeline for instantaneous, zero-delay text drag selection and caret movement.
 
 ### 2. 📄 Deterministic Multi-Page Pagination (A4 Academic Standard)
 - Accurate line-to-index mapping and dynamic text flow distribution across multiple pages.
 - Standard Indonesian thesis page layout defaults (A4 size with customizable margins, e.g., Top: 4cm, Left: 4cm, Bottom: 3cm, Right: 3cm).
 - Real-time page boundary recalculations upon inserting text, images, or headings.
 
-### 3. 📎 Native DOCX OpenXML Importer (Zero Mammoth Dependency)
+### 3. 🖥️ Dual Ribbon Toolbar Styles
+- **`'full'` (MS Word / OpenOffice Style)**: Multi-tab ribbon bar (*Beranda*, *Sisipkan*, *Tata Letak*) with organized tool groups for Clipboard, Typography & Fonts, Paragraph & Spacing, Style Cards, Document Tools, Find/Replace, Image Insertion, and Export.
+- **`'minimal'` (Floating Balloon Toolbar)**: Compact floating rounded toolbar hovering directly above the document.
+
+### 4. 🗂️ Smart Responsive Multi-Page Grid View
+- Dynamically adapts between a single centered column view at standard zoom levels and a multi-page horizontal grid view when zoomed out to fit the full page height on screen.
+
+### 5. 🤖 Context Menu AI & Clipboard Integration
+- Right-click context menu featuring AI Assistant triggers (*💬 Tanya AI*, *🔍 Perbaiki Tata Bahasa*, *➕ Lanjutkan Penulisan*) delegating to host app via `onAiAction`.
+- Full clipboard integration (*Salin / Copy*, *Potong / Cut*, *Tempel / Paste*) with smart empty clipboard detection.
+- Active text selection preservation on right-click.
+
+### 6. ⌨️ Global Keyboard & Clipboard Shortcuts
+- Instant global shortcuts: Undo (`Ctrl+Z`), Redo (`Ctrl+Y` / `Ctrl+Shift+Z`), Select All (`Ctrl+A`), Copy (`Ctrl+C`), Cut (`Ctrl+X`), Paste (`Ctrl+V`), and full formatting shortcuts (`Ctrl+B`, `Ctrl+I`, `Ctrl+U`, `Ctrl+S`, `Ctrl+L`, `Ctrl+E`, `Ctrl+R`, `Ctrl+J`) without requiring prior canvas focus.
+
+### 7. 📎 Native DOCX OpenXML Importer (Zero Mammoth Dependency)
 - Direct parsing of `.docx` archive structures via `JSZip` and `DOMParser`.
 - Preserves paragraph alignments (left, center, right, justified), custom font families, font sizes, line spacings, and text styles without formatting degradation.
 
-### 4. 📑 PDF Import & Direct Editing
+### 8. 📑 PDF Import & Direct Editing
 - High-fidelity PDF document importing powered by `pdfjs-dist`.
 - Extracts and maps vector text elements into editable canvas blocks.
 
-### 5. 📏 Tab Stops, Indentation & Rulers
-- Precise Tab Stop navigation and paragraph indentations conforming to Indonesian academic writing standards.
+### 9. 📤 Standalone Export System
+- Built-in multi-format export modal dialog supporting PDF, DOCX, TXT, HTML, and JSON AST, with optional custom host handler via `onExport`.
 
-### 6. 📋 Integrated Professional UI Ribbon
-- Modular React-based top ribbon menu (Home, Insert, Layout, Page Setup, Export) mapped directly to core editor commands.
+### 10. 🖼️ Image & Media Management
+- Insert, position, resize handles, rotation, and inline flow positioning with text wrapping.
 
-### 7. 🖼️ Image & Media Management
-- Insert, position, resize, and maintain image inline flow with text wrapping.
-
-### 8. 🔍 Zoom Controls & Real-Time Document Statistics
-- Smooth zoom in/out with multi-page side-by-side or stacked view.
-- Persistent word counter, character counter, and active page indicator.
-
-### 9. ⚙️ JSON Configurable Toolbar & Tools
-- Declarative configuration format allowing AI agents or host applications to dynamically customize available toolbar controls and page setups.
+### 11. 🔍 Zoom Controls & Real-Time Document Statistics
+- Smooth zoom in/out controls with persistent word counter, character counter, and active page indicator.
 
 ---
 
@@ -158,18 +168,28 @@ In your host application (`KetikinAI`):
 ### 2. Basic React Usage
 ```tsx
 import React, { useRef } from 'react';
-import { KetikinEditor } from 'ketikin-editor-core';
+import { KetikinEditor, EditorAiAction } from 'ketikin-editor-core';
 
 export function DocumentEditorPage() {
-  const editorRef = useRef(null);
+  const handleAiAction = (action: EditorAiAction) => {
+    console.log('AI Action triggered:', action.type, action.selectedText);
+  };
+
+  const handleExport = (format: string, blob: Blob) => {
+    console.log(`Document exported as ${format}, size: ${blob.size} bytes`);
+  };
 
   return (
-    <div className="w-full h-screen">
+    <div style={{ width: '100vw', height: '100vh' }}>
       <KetikinEditor
-        ref={editorRef}
-        initialPageSize="A4"
-        initialMargins={{ top: 4, left: 4, right: 3, bottom: 3 }}
-        onChange={(doc) => console.log('Document updated:', doc)}
+        toolbarStyle="full" // 'full' (MS Word Ribbon) or 'minimal' (Floating Balloon)
+        documentTitle="Proposal Penelitian"
+        locale="id" // 'id' or 'en'
+        showHeader={true}
+        showFooter={true}
+        onAiAction={handleAiAction}
+        onExport={handleExport}
+        onChange={(elements) => console.log('Document updated:', elements.length)}
       />
     </div>
   );

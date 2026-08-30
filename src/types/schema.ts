@@ -5,7 +5,7 @@
  * ---------------------------------------------------------
  */
 
-export type PageSize = 'A4' | 'Letter' | 'Legal' | 'Custom';
+export type PageSize = 'A4' | 'Letter' | 'F4' | 'Legal' | 'Custom';
 export type Orientation = 'portrait' | 'landscape';
 export type Alignment = 'left' | 'center' | 'right' | 'justify';
 

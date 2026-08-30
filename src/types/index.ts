@@ -20,9 +20,14 @@ export interface DocElement {
   spacingBefore?: number;
   spacingAfter?: number;
   headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+  firstLineIndent?: number;
+  indentLeft?: number;
+  indentRight?: number;
+  isQuote?: boolean;
+  link?: string;
   
-  // Image block
-  elementType?: 'text' | 'image';
+  // Element Type (text, image, horizontal divider)
+  elementType?: 'text' | 'image' | 'divider';
   imageUrl?: string;
   imageWidth?: number;
   imageHeight?: number;
@@ -136,6 +141,8 @@ export interface RenderLine {
   height: number;
   startIndex: number;
   endIndex: number;
+  isParagraphStart?: boolean;
+  listNumber?: number;
 }
 
 export interface RenderPage {
@@ -146,4 +153,11 @@ export interface RenderPage {
 export interface Selection {
   start: number; // index in flat char array
   end: number;
+}
+
+export interface PageNumberConfig {
+  position: 'bottom-center' | 'bottom-right' | 'top-right' | 'top-center' | 'none';
+  format: 'arabic' | 'roman-lower' | 'roman-upper';
+  startAt: number;
+  showOnFirstPage: boolean;
 }

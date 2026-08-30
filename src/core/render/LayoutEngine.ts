@@ -22,18 +22,35 @@ export class LayoutEngine {
     return `${style}${weight}${element.fontSize}px ${element.fontFamily || 'Times New Roman'}`;
   }
 
-  private applyLineAlignment(line: RenderLine, elements: DocElement[], maxWidth: number) {
+  private getLineStartX(element: DocElement, isParaStart: boolean): number {
+    const indentLeft = element.indentLeft || 0;
+    const listIndent = element.listType ? 28 * ((element.listLevel || 0) + 1) : 0;
+    const firstLineIndent = isParaStart ? (element.firstLineIndent || 0) : 0;
+    return this.config.padding.left + indentLeft + listIndent + firstLineIndent;
+  }
+
+  private getLineMaxRight(element: DocElement): number {
+    const indentRight = element.indentRight || 0;
+    return this.config.width - this.config.padding.right - indentRight;
+  }
+
+  private applyLineAlignment(line: RenderLine, elements: DocElement[]) {
     if (line.chars.length <= 0) return;
     const firstChar = line.chars[0];
-    const align = elements[firstChar.elementIndex]?.align || 'left';
+    const el = elements[firstChar.elementIndex];
+    const align = el?.align || 'left';
     if (align === 'left') return;
+
+    const indentRight = el?.indentRight || 0;
+    const lineMaxRight = this.config.width - this.config.padding.right - indentRight;
 
     const lastChar = line.chars[line.chars.length - 1];
     const isNewLine = lastChar.char === '\n' || lastChar.char === '\f';
 
     const visibleLastChar = isNewLine && line.chars.length > 1 ? line.chars[line.chars.length - 2] : lastChar;
     const currentLineWidth = (visibleLastChar.x + visibleLastChar.width) - firstChar.x;
-    const extraSpace = maxWidth - currentLineWidth;
+    const availableWidth = lineMaxRight - firstChar.x;
+    const extraSpace = availableWidth - currentLineWidth;
 
     if (extraSpace <= 0) return;
 
@@ -44,7 +61,7 @@ export class LayoutEngine {
       line.chars.forEach(c => c.x += extraSpace);
     } else if (align === 'justify' && !isNewLine) {
       let spaceCount = 0;
-      line.chars.forEach(c => { if (c.char === ' ') spaceCount++ });
+      line.chars.forEach(c => { if (c.char === ' ') spaceCount++; });
       if (spaceCount > 0) {
         const spaceAdd = extraSpace / spaceCount;
         let currentShift = 0;
@@ -62,38 +79,103 @@ export class LayoutEngine {
     pages.push(currentPage);
 
     let currentY = this.config.padding.top;
-    let currentLine: RenderLine = { chars: [], y: currentY, height: 0, startIndex: 0, endIndex: 0 };
-    let currentX = this.config.padding.left;
-
-    const maxWidth = this.config.width - this.config.padding.left - this.config.padding.right;
     const maxHeight = this.config.height - this.config.padding.bottom;
 
     let globalCharIndex = 0;
+    let isParagraphStart = true;
+    let listCounter = 0;
+
+    const firstEl = elements[0] || { text: '\n', fontSize: 12, fontFamily: 'Times New Roman' };
+    let currentX = this.getLineStartX(firstEl, true);
+    let currentLine: RenderLine = {
+      chars: [],
+      y: currentY,
+      height: 0,
+      startIndex: 0,
+      endIndex: 0,
+      isParagraphStart: true,
+      listNumber: firstEl.listType === 'number' ? ++listCounter : undefined
+    };
 
     elements.forEach((element, elementIdx) => {
+      // ── HORIZONTAL DIVIDER BLOCK ─────────────────────────────────
+      if (element.elementType === 'divider') {
+        const dividerHeight = 18;
+        const lineMaxRight = this.getLineMaxRight(element);
+        const lineStartX = this.getLineStartX(element, false);
+        const dividerW = Math.max(20, lineMaxRight - lineStartX);
+
+        if (currentLine.chars.length > 0) {
+          this.applyLineAlignment(currentLine, elements);
+          currentLine.startIndex = currentLine.chars[0].charIndex;
+          currentLine.endIndex = currentLine.chars[currentLine.chars.length - 1].charIndex + 1;
+          currentPage.lines.push({ ...currentLine });
+          currentY += currentLine.height || 18;
+        }
+
+        if (currentY + dividerHeight > maxHeight) {
+          currentPage = { lines: [], pageIndex: pages.length };
+          pages.push(currentPage);
+          currentY = this.config.padding.top;
+        }
+
+        const divChar: RenderChar = {
+          char: '\u2015',
+          elementIndex: elementIdx,
+          charIndex: globalCharIndex++,
+          x: lineStartX,
+          y: currentY,
+          width: dividerW,
+          height: dividerHeight,
+          ascent: dividerHeight / 2,
+          fontSize: 12,
+        };
+        (divChar as any).isDivider = true;
+
+        const divLine: RenderLine = {
+          chars: [divChar],
+          y: currentY,
+          height: dividerHeight,
+          startIndex: divChar.charIndex,
+          endIndex: divChar.charIndex + 1,
+          isParagraphStart: false
+        };
+        currentPage.lines.push(divLine);
+        currentY += dividerHeight;
+
+        isParagraphStart = true;
+        currentX = this.getLineStartX(element, true);
+        currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex, isParagraphStart: true };
+        return;
+      }
+
       // ── IMAGE BLOCK ──────────────────────────────────────────────
       if (element.elementType === 'image' && element.imageUrl) {
+        const maxWidth = this.config.width - this.config.padding.left - this.config.padding.right;
         const wrapping = element.imageWrapping || 'topBottom';
         const imgW = Math.min(element.imageWidth || 300, maxWidth);
         const imgH = element.imageHeight || 200;
 
         if (wrapping === 'inline') {
-            if (currentX + imgW > maxWidth && currentLine.chars.length > 0) {
-                this.applyLineAlignment(currentLine, elements, maxWidth);
+            const lineMaxRight = this.getLineMaxRight(element);
+            if (currentX + imgW > lineMaxRight && currentLine.chars.length > 0) {
+                this.applyLineAlignment(currentLine, elements);
                 currentLine.startIndex = currentLine.chars[0]?.charIndex ?? globalCharIndex;
                 currentLine.endIndex = currentLine.chars.length > 0 ? currentLine.chars[currentLine.chars.length-1].charIndex + 1 : globalCharIndex;
                 currentPage.lines.push({ ...currentLine });
                 currentY += currentLine.height || element.fontSize * 1.2;
-                currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex };
-                currentX = this.config.padding.left;
+                isParagraphStart = false;
+                currentX = this.getLineStartX(element, false);
+                currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex, isParagraphStart: false };
             }
             
             if (currentY + imgH > maxHeight) {
                 currentPage = { lines: [], pageIndex: pages.length };
                 pages.push(currentPage);
                 currentY = this.config.padding.top;
-                currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex };
-                currentX = this.config.padding.left;
+                isParagraphStart = false;
+                currentX = this.getLineStartX(element, false);
+                currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex, isParagraphStart: false };
             }
 
             const imgChar: RenderChar = {
@@ -125,10 +207,7 @@ export class LayoutEngine {
             };
             (imgChar as any).wrapping = wrapping;
 
-            // Page handling for floating images
             let targetPage = currentPage;
-            // ... (page handling logic could be expanded)
-
             targetPage.lines.push({ chars: [imgChar], y: imgY, height: 0, startIndex: imgChar.charIndex, endIndex: imgChar.charIndex + 1 });
             
             if (!this.imageCache.has(element.imageUrl)) {
@@ -139,13 +218,13 @@ export class LayoutEngine {
 
         // Default: topBottom (Block level)
         if (currentLine.chars.length > 0) {
-          this.applyLineAlignment(currentLine, elements, maxWidth);
+          this.applyLineAlignment(currentLine, elements);
           currentLine.startIndex = currentLine.chars[0].charIndex;
           currentLine.endIndex = currentLine.chars[currentLine.chars.length - 1].charIndex + 1;
           currentPage.lines.push({ ...currentLine });
           currentY += currentLine.height || element.fontSize * 1.2;
-          currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex };
-          currentX = this.config.padding.left;
+          currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex, isParagraphStart: true };
+          currentX = this.getLineStartX(element, true);
         }
 
         if (currentY + imgH > maxHeight) {
@@ -179,17 +258,25 @@ export class LayoutEngine {
         currentPage.lines.push({ chars: [nlChar], y: currentY, height: element.fontSize * 1.2, startIndex: nlChar.charIndex, endIndex: nlChar.charIndex + 1 });
         currentY += element.fontSize * 1.2;
 
-        currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex };
-        currentX = this.config.padding.left;
+        isParagraphStart = true;
+        currentX = this.getLineStartX(element, true);
+        currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex, isParagraphStart: true };
 
         if (!this.imageCache.has(element.imageUrl)) {
           const img = new Image(); img.src = element.imageUrl; this.imageCache.set(element.imageUrl, img);
         }
         return;
       }
+
       // ── TEXT BLOCK ───────────────────────────────────────────────
       const font = this.getFontString(element);
       this.offscreenCtx.font = font;
+
+      // Handle spacingBefore on new paragraph
+      if (isParagraphStart && element.spacingBefore && element.spacingBefore > 0 && currentLine.chars.length === 0) {
+        currentY += element.spacingBefore;
+        currentLine.y = currentY;
+      }
 
       const words = element.text.split(/(\s|\n|\f)/);
 
@@ -218,7 +305,7 @@ export class LayoutEngine {
           currentLine.chars.push(renderChar);
           currentLine.height = Math.max(currentLine.height, charHeight);
 
-          this.applyLineAlignment(currentLine, elements, maxWidth);
+          this.applyLineAlignment(currentLine, elements);
           currentLine.startIndex = currentLine.chars[0].charIndex;
           currentLine.endIndex = currentLine.chars[currentLine.chars.length - 1].charIndex + 1;
           currentPage.lines.push({ ...currentLine });
@@ -240,8 +327,20 @@ export class LayoutEngine {
             }
           }
 
-          currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex };
-          currentX = this.config.padding.left;
+          isParagraphStart = true;
+          if (element.listType !== 'number') {
+            listCounter = 0;
+          }
+          currentX = this.getLineStartX(element, true);
+          currentLine = {
+            chars: [],
+            y: currentY,
+            height: 0,
+            startIndex: globalCharIndex,
+            endIndex: globalCharIndex,
+            isParagraphStart: true,
+            listNumber: element.listType === 'number' ? ++listCounter : undefined
+          };
           return;
         }
 
@@ -291,10 +390,11 @@ export class LayoutEngine {
         }
 
         const wordWidth = this.offscreenCtx.measureText(word).width;
+        const lineMaxRight = this.getLineMaxRight(element);
 
         // Wrap word to next line if it overflows (only if NOT at line start to avoid infinite loop)
-        if (currentX + wordWidth > this.config.padding.left + maxWidth && currentLine.chars.length > 0) {
-          this.applyLineAlignment(currentLine, elements, maxWidth);
+        if (currentX + wordWidth > lineMaxRight && currentLine.chars.length > 0) {
+          this.applyLineAlignment(currentLine, elements);
           currentLine.startIndex = currentLine.chars[0].charIndex;
           currentLine.endIndex = currentLine.chars[currentLine.chars.length - 1].charIndex + 1;
           currentPage.lines.push({ ...currentLine });
@@ -308,8 +408,9 @@ export class LayoutEngine {
             currentY = this.config.padding.top;
           }
 
-          currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex };
-          currentX = this.config.padding.left;
+          isParagraphStart = false;
+          currentX = this.getLineStartX(element, false);
+          currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex, isParagraphStart: false };
         }
 
         for (let i = 0; i < word.length; i++) {
@@ -323,9 +424,9 @@ export class LayoutEngine {
           const charWidth = this.offscreenCtx.measureText(char).width;
           const charHeight = element.fontSize * 1.2;
 
-          // Per-char page break (only if NOT at line start to avoid infinite loop on very wide chars)
-          if (currentX + charWidth > this.config.padding.left + maxWidth && currentLine.chars.length > 0) {
-            this.applyLineAlignment(currentLine, elements, maxWidth);
+          // Per-char line break on overflow
+          if (currentX + charWidth > lineMaxRight && currentLine.chars.length > 0) {
+            this.applyLineAlignment(currentLine, elements);
             currentLine.startIndex = currentLine.chars[0].charIndex;
             currentLine.endIndex = currentLine.chars[currentLine.chars.length - 1].charIndex + 1;
             currentPage.lines.push({ ...currentLine });
@@ -339,8 +440,9 @@ export class LayoutEngine {
               currentY = this.config.padding.top;
             }
 
-            currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex };
-            currentX = this.config.padding.left;
+            isParagraphStart = false;
+            currentX = this.getLineStartX(element, false);
+            currentLine = { chars: [], y: currentY, height: 0, startIndex: globalCharIndex, endIndex: globalCharIndex, isParagraphStart: false };
           }
 
           // Compute charY AFTER potential page break so it uses the updated currentY
@@ -376,7 +478,7 @@ export class LayoutEngine {
     });
 
     // Always push the last line, even if it's empty, to provide a valid cursor position at the end of total pages.
-    this.applyLineAlignment(currentLine, elements, maxWidth);
+    this.applyLineAlignment(currentLine, elements);
     currentLine.startIndex = currentLine.chars[0]?.charIndex ?? globalCharIndex;
     currentLine.endIndex = currentLine.chars.length > 0 ? currentLine.chars[currentLine.chars.length - 1].charIndex + 1 : globalCharIndex;
     currentPage.lines.push(currentLine);

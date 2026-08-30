@@ -1,13 +1,15 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { DocElement } from '../types';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || '5.6.205'}/build/pdf.worker.min.mjs`;
+}
 
 export async function importPdf(arrayBuffer: ArrayBuffer): Promise<DocElement[]> {
   try {
+    if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || '5.6.205'}/build/pdf.worker.min.mjs`;
+    }
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const elements: DocElement[] = [];
 

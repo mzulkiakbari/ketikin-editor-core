@@ -1,4 +1,4 @@
-import { DocElement, EditorConfig, RenderPage } from '../../types/index';
+import { DocElement, EditorConfig, RenderPage, PageNumberConfig } from '../../types/index';
 import { LayoutEngine } from './LayoutEngine';
 import { CanvasRenderer } from './CanvasRenderer';
 
@@ -21,7 +21,14 @@ export class RenderEngine {
     return this.layoutEngine.layout(elements);
   }
 
-  public render(pages: RenderPage[], containers: HTMLElement[], selection?: { start: number, end: number } | null, elements?: DocElement[], dropTargetIndex?: number | null) {
-    this.canvasRenderer.render(pages, containers, selection, elements, dropTargetIndex);
+  public render(
+    pages: RenderPage[],
+    containers: HTMLElement[],
+    selection?: { start: number, end: number } | null,
+    elements?: DocElement[],
+    dropTargetIndex?: number | null,
+    pageNumberConfig?: PageNumberConfig
+  ) {
+    this.canvasRenderer.render(pages, containers, selection, elements, dropTargetIndex, pageNumberConfig);
   }
 }

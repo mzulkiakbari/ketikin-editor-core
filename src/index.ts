@@ -3,4 +3,8 @@ export * from './types/schema';
 export * from './core/render/RenderEngine';
 export * from './core/Editor';
 export * from './components/editor/KetikinEditor';
+export * from './components/layout/ExportModal';
 export * from './importers/FileImporter';
+export * from './exporters/index';
+export * from './locales/index';
+export * from './locales/types';
